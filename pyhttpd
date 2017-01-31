@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# pyhttpd - portable python HTTP server utility
+
 import os
 import sys
 from optparse import OptionParser
@@ -12,18 +14,20 @@ else:
     is_root = False
     port = 8080
 
-# Parse command line options
+## Parse command line options
 parser = OptionParser()
+parser.add_option('-D', '--daemon', dest='fork', action='store_true', default=False, help='Fork process to the background')
+# Options: bind
 parser.add_option('-b', '--bind', dest='host', default='0.0.0.0', help='Bind server to this ip address')
 parser.add_option('-p', '--port', dest='port', default=port, help='Listen for connection on this port')
+# Options: server modes
 parser.add_option('-t', '--text', dest='text', help='Text to return in "text" mode')
-parser.add_option('-r', '--redirect', dest='redirect', help='Location to redirect to when in "redirect" mode')
+parser.add_option('-r', '--redirect', dest='url', help='Location to redirect to when in "redirect" mode')
 parser.add_option('-f', '--file', dest='file', help='Print the contents of this file when in "file" mode')
 parser.add_option('-d', '--dir', dest='dir', help='Serve the contents of this directory when in "dir" mode')
-parser.add_option('-D', '--daemon', dest='fork', action='store_true', default=False, help='Fork process to the background')
 (opts, args) = parser.parse_args()
 
-# Sanatize and sort input
+## Sanatize and sort input
 host = str(opts.host)
 port = int(opts.port)
 address = (host, port)
@@ -33,17 +37,17 @@ content_type = 'text/html'
 if opts.text:
     mode = 'text'
     text = str(opts.text)
-# Reditect mode
-elif opts.redirect:
-    mode = 'redirect'
-    redirect = str(opts.redirect)
 # Single file mode
 elif opts.file:
     mode = 'file'
-    # @todo check file exists
+    #@todo check file exists
     f = open(str(opts.file), 'r')
     text = f.read()
     f.close()
+# Redirect mode
+elif opts.url:
+    mode = 'redirect'
+    url = str(opts.url)
 # Directory listing mode
 elif opts.dir:
     mode = 'dir'
@@ -54,14 +58,14 @@ else:
     mode = 'text'
     text = 'Hi!'
 
-# Server Handler class
+## Server handler class
 class MyHandler(BaseHTTPRequestHandler):
     # GET requests
     def do_GET(self):
-        # Mode: Redirect
+        # Mode: redirect
         if mode == 'redirect':
             self.send_response(301)
-            self.send_header('Location', redirect)
+            self.send_header('Location', url)
             self.end_headers()
         # Mode: text
         elif mode == 'text' or mode == 'file':
@@ -69,9 +73,9 @@ class MyHandler(BaseHTTPRequestHandler):
             self.send_header('Content-type',content_type)
             self.end_headers()
             self.wfile.write(text + '\n')
-        # Mode: ditectory listing
+        # Mode: directory listing
         elif mode == 'dir':
-            # @todo ditectory listing
+            #@todo directory listing
             print('something with ' + dir)
         # Mode: idk
         else:
@@ -84,12 +88,11 @@ def main():
         server = HTTPServer(address, MyHandler)
         print('Started the server on ' + host + ':' + str(port))
         server.serve_forever()
-
     except KeyboardInterrupt:
         print('\n' + 'Shutting down due to Keyboard interrupt')
         server.shutdown()
 
-# Do the UNIX double-fork magic
+## Do the UNIX double-fork magic
 def daemon(func):
     try: # First fork
         pid = os.fork()
@@ -112,11 +115,12 @@ def daemon(func):
     func() # Function to be forked
     os._exit(os.EX_OK) # Cleanly exit when all done
 
-# Constructor
+## Constructor
 if __name__ == '__main__':
     # Run forked or regular?
     if not opts.fork:
         main()
     else:
         daemon(main)
+# pyhttpd
 
